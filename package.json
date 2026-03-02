@@ -1,6 +1,6 @@
 {
   "name": "com.llarean.glyphfontchecker",
-  "version": "1.0.0",
+  "version": "1.2.1",
   "displayName": "Glyph Font Checker",
   "description": "Editor utility for checking character coverage in TMP and Unity fonts. Validates static and dynamic atlases, warns about problematic atlas settings that may cause missing glyphs at runtime.",
   "unity": "2021.3",

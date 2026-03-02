@@ -34,15 +34,15 @@ namespace LLarean.GlyphFontChecker
         public string AssetType;
         public int TotalChars;
         public int PresentChars;
-        public List<char> MissingChars = new();          // truly missing — not in primary font or any fallback
-        public List<FallbackCoverage> Fallbacks = new(); // chars rescued by fallback fonts
+        public List<char> MissingChars = new List<char>();          // truly missing — not in primary font or any fallback
+        public List<FallbackCoverage> Fallbacks = new List<FallbackCoverage>(); // chars rescued by fallback fonts
         public string Error;
 
         // Dynamic atlas
         public bool IsDynamic;
         public bool? SourceFontCoversAllMissing; // null = source font not assigned
 
-        public List<AtlasWarning> AtlasWarnings = new();
+        public List<AtlasWarning> AtlasWarnings = new List<AtlasWarning>();
 
         public int MissingCount => MissingChars.Count;
         public bool HasError => !string.IsNullOrEmpty(Error);

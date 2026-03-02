@@ -16,7 +16,7 @@ namespace LLarean.GlyphFontChecker
         private const int TextAreaHardLimit = 2000;
 
         // --- Text source state ---
-        private HashSet<char> _chars = new();
+        private HashSet<char> _chars = new HashSet<char>();
         private string _charSource;   // displayed label: "TextAsset: foo", "Clipboard", "Manual"
         private int _totalInputLength;
 
@@ -103,7 +103,7 @@ namespace LLarean.GlyphFontChecker
 
             // Hard cap: prevent crashes from large one-frame renders
             if (_manualText.Length > TextAreaHardLimit)
-                _manualText = _manualText[..TextAreaHardLimit];
+                _manualText = _manualText.Substring(0, TextAreaHardLimit);
 
             if (_manualText.Length > TextAreaSoftLimit)
             {
