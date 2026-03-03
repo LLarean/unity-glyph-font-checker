@@ -69,15 +69,30 @@ namespace LLarean.GlyphFontChecker
                 return;
             }
 
-            EditorGUILayout.HelpBox(
-                "Font file could not be parsed directly — fell back to Unity's font API.\n\n" +
-                "What this means:\n" +
-                "  • Characters shown as MISSING are reliably missing.\n" +
-                "  • Characters shown as PRESENT may be false positives from system font substitution\n" +
-                "    (e.g. Arial or Noto covering the character instead of this font file).",
-                MessageType.Warning);
+            if (!_result.FontFileReaderInvoked)
+            {
+                // FontFileReader was never called — most likely sourceFontFile is null
+                EditorGUILayout.HelpBox(
+                    "Font file was not read — FontFileReader was not invoked.\n\n" +
+                    "Most likely cause: the Source Font File is not assigned on this asset.\n" +
+                    "Results are based on the current atlas cache only — characters not yet rendered\n" +
+                    "will appear as missing even if the source font contains them.\n\n" +
+                    "There is no [FontFileReader] warning in the Console because the reader was never called.",
+                    MessageType.Warning);
+            }
+            else
+            {
+                // FontFileReader was called but could not parse the file
+                EditorGUILayout.HelpBox(
+                    "Font file could not be parsed directly — fell back to Unity's font API.\n\n" +
+                    "What this means:\n" +
+                    "  • Characters shown as MISSING are reliably missing.\n" +
+                    "  • Characters shown as PRESENT may be false positives from system font substitution\n" +
+                    "    (e.g. Arial or Noto covering the character instead of this font file).",
+                    MessageType.Warning);
 
-            DrawFontReadDiagnostic();
+                DrawFontReadDiagnostic();
+            }
         }
 
         // ── Font read diagnostic ──────────────────────────────────────────────────

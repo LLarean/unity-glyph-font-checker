@@ -191,10 +191,11 @@ namespace LLarean.GlyphFontChecker
         {
             var result = new ValidationResult
             {
-                AssetName  = font.name,
-                AssetType  = "TMP Font (Static)",
-                TotalChars = chars.Count,
-                IsDynamic  = false,
+                AssetName             = font.name,
+                AssetType             = "TMP Font (Static)",
+                TotalChars            = chars.Count,
+                IsDynamic             = false,
+                FontFileReaderInvoked = font.sourceFontFile != null,
             };
 
             // Early health check — atlas must be usable before anything else
@@ -223,7 +224,8 @@ namespace LLarean.GlyphFontChecker
             {
                 if (font.sourceFontFile != null)
                 {
-                    result.UsedDirectFileRead = true;
+                    result.UsedDirectFileRead     = true;
+                    result.FontFileReaderInvoked  = true;
                     var codePoints = FontFileReader.ReadCodePoints(font.sourceFontFile, out string fontDiag);
                     if (codePoints != null)
                     {
@@ -276,13 +278,15 @@ namespace LLarean.GlyphFontChecker
 
         private static ValidationResult ValidateDynamicTmpFont(HashSet<char> chars, TMP_FontAsset font)
         {
-            var    missingFromFile    = new List<char>();
-            var    presentInFont      = new List<char>();
-            bool   usedDirectRead     = false;
-            string fontReadDiagnostic = null;
+            var    missingFromFile        = new List<char>();
+            var    presentInFont          = new List<char>();
+            bool   usedDirectRead         = false;
+            bool   fontFileReaderInvoked  = false;
+            string fontReadDiagnostic     = null;
 
             if (font.sourceFontFile != null)
             {
+                fontFileReaderInvoked = true;
                 var codePoints = FontFileReader.ReadCodePoints(font.sourceFontFile, out string fontDiag);
                 if (codePoints != null)
                 {
@@ -316,15 +320,16 @@ namespace LLarean.GlyphFontChecker
 
             var result = new ValidationResult
             {
-                AssetName           = font.name,
-                AssetType           = "TMP Font (Dynamic)",
-                TotalChars          = chars.Count,
-                PresentChars        = presentInFont.Count,
-                MissingChars        = missingFromFile,
-                MissingFromFontFile = missingFromFile,
-                IsDynamic           = true,
-                UsedDirectFileRead  = usedDirectRead,
-                FontReadDiagnostic  = fontReadDiagnostic,
+                AssetName                = font.name,
+                AssetType                = "TMP Font (Dynamic)",
+                TotalChars               = chars.Count,
+                PresentChars             = presentInFont.Count,
+                MissingChars             = missingFromFile,
+                MissingFromFontFile      = missingFromFile,
+                IsDynamic                = true,
+                UsedDirectFileRead       = usedDirectRead,
+                FontFileReaderInvoked    = fontFileReaderInvoked,
+                FontReadDiagnostic       = fontReadDiagnostic,
             };
 
             // Source font missing — most critical issue
@@ -389,14 +394,15 @@ namespace LLarean.GlyphFontChecker
 
             var result = new ValidationResult
             {
-                AssetName           = font.name,
-                AssetType           = "Unity Font",
-                TotalChars          = chars.Count,
-                PresentChars        = present,
-                MissingChars        = missing,
-                MissingFromFontFile = missing,
-                UsedDirectFileRead  = directRead,
-                FontReadDiagnostic  = directRead ? null : fontDiag,
+                AssetName             = font.name,
+                AssetType             = "Unity Font",
+                TotalChars            = chars.Count,
+                PresentChars          = present,
+                MissingChars          = missing,
+                MissingFromFontFile   = missing,
+                UsedDirectFileRead    = directRead,
+                FontFileReaderInvoked = true,
+                FontReadDiagnostic    = directRead ? null : fontDiag,
             };
 
             if (!directRead)

@@ -101,6 +101,13 @@ namespace LLarean.GlyphFontChecker
         /// </summary>
         public bool UsedDirectFileRead;
 
+        /// <summary>
+        /// True when FontFileReader.ReadCodePoints was actually called during this check.
+        /// False means we never attempted to read the file (e.g. sourceFontFile was null).
+        /// Distinguishes "reader was invoked but failed" from "reader was never invoked".
+        /// </summary>
+        public bool FontFileReaderInvoked;
+
         public List<AtlasWarning> AtlasWarnings = new List<AtlasWarning>();
 
         // ── Derived counts ───────────────────────────────────────────────────────
