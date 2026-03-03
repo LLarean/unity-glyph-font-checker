@@ -2,10 +2,17 @@
 
 [![Releases](https://img.shields.io/github/v/release/llarean/unity-glyph-font-checker)](https://github.com/LLarean/unity-glyph-font-checker/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/LLarean/unity-glyph-font-checker/blob/main/LICENSE.md)
-![stability-stable](https://img.shields.io/badge/stability-stable-green.svg)
+![stability-experimental](https://img.shields.io/badge/stability-experimental-orange.svg)
 [![CodeFactor](https://www.codefactor.io/repository/github/llarean/unity-glyph-font-checker/badge)](https://www.codefactor.io/repository/github/llarean/unity-glyph-font-checker)
 [![Support](https://img.shields.io/badge/support-active-brightgreen)](https://github.com/llarean/unity-glyph-font-checker/graphs/commit-activity)
 [![Downloads](https://img.shields.io/github/downloads/llarean/unity-glyph-font-checker/total)](https://github.com/LLarean/unity-glyph-font-checker/archive/refs/heads/main.zip)
+
+> [!WARNING]
+> **This utility is an AI-generated prototype.**
+> The current implementation was produced with the assistance of an AI coding tool and has not yet been fully reviewed or hardened by hand.
+> It will be refined manually in future iterations.
+>
+> **Use at your own risk.** Results may be inaccurate in edge cases — always validate findings against a real device or a dedicated font inspection tool (e.g. FontForge, Windows Character Map) before making production decisions.
 
 Editor utility for checking character coverage in TMP and Unity fonts. Detects missing glyphs, walks fallback font chains, and validates dynamic atlas settings that may cause characters to fail at runtime.
 
@@ -43,23 +50,66 @@ There are 3 ways to install this utility:
 4. Click **Check**
 
 The result window shows:
-- **Unique / Present / Fallback / Missing** — full character breakdown
+- **Unique / Present / Fallback / Not baked / Missing** — full character breakdown
+- **Read method note** — whether results came from direct font file parsing or Unity API fallback; includes diagnostic details and a copy button when parsing failed
 - **Dynamic atlas summary** — whether missing chars can be generated at runtime via the source font
+- **Atlas and script warnings** — atlas capacity estimate, script compatibility, fallback chain depth, font file bundling
 - **Fallback coverage** — which chars are rescued by each fallback font in the chain
-- **Atlas setting warnings** — potential issues with atlas size, render mode, multi-atlas, or `Clear Dynamic Data On Build`
-- **Missing characters list** — sorted, with a copy-to-clipboard button
+- **Missing from font file** — chars physically absent from the font; sorted, with copy-to-clipboard
+- **In font but not in atlas** — chars present in the source font but not baked into the static atlas; sorted, with copy-to-clipboard
 
-## Atlas Checks (Dynamic TMP Fonts Only)
+## Checks Reference
 
-| Setting | Issue | Severity |
+### Direct font file parsing (all font types)
+
+The tool reads the OpenType/TrueType `cmap` table directly from the `.ttf`/`.otf`/`.ttc` file — bypassing Unity's font API and system font substitution. Supported cmap formats: **4** (BMP), **6** (trimmed), **12** (full Unicode).
+
+If the file cannot be parsed (Packages/ path, WOFF/WOFF2, unsupported format), the tool falls back to Unity's `HasCharacter()` API and reports the exact reason in the result window with a copy button.
+
+### Static TMP atlas checks
+
+| Check | Issue | Severity |
 |---|---|---|
-| `Clear Dynamic Data On Build` = true | Glyphs cleared on build, must regenerate at runtime | ⚠ Warning |
-| Atlas < 256×256 px | Very likely to overflow | ⚠ Warning |
-| Atlas < 512×512 px + SDF render mode | SDF adds significant per-glyph padding — increased risk | ⚠ Warning |
-| Atlas < 512×512 px | May overflow with large character sets | ℹ Info |
-| Multi-atlas disabled + atlas > 80% full | Near overflow with no recovery path | ⚠ Warning |
-| Multi-atlas disabled | Atlas cannot grow when full | ⚠ Warning |
-| Atlas > 90% full (multi-atlas enabled) | Will allocate a new texture on overflow | ℹ Info |
+| Atlas texture is null | Font has no baked texture — nothing will render | ⚠ Warning |
+| Character table is empty | No glyphs baked — regenerate atlas | ⚠ Warning |
+| Source font not assigned | Cannot distinguish "not baked" from "missing" | ⚠ Warning |
+| Chars in source font but not in atlas | Need Regenerate Atlas | ⚠ Warning |
+| Chars absent from source font file | Need a different font | ✖ Error |
+
+### Dynamic TMP atlas checks
+
+| Check | Issue | Severity |
+|---|---|---|
+| Source font not assigned | Runtime glyph generation impossible | ⚠ Warning |
+| Source font in `Editor/` folder | Will not be included in builds | ⚠ Warning |
+| `Clear Dynamic Data On Build` = true | Glyphs cleared on build, regenerated at runtime | ⚠ Warning |
+| Atlas < 256×256 px | Extremely small — near-certain overflow | ⚠ Warning |
+| Atlas < 512×512 px + SDF mode | SDF padding reduces effective capacity | ⚠ Warning |
+| Estimated capacity < 80% after input | Atlas approaching full | ⚠ Warning |
+| Estimated capacity overflow | Input will not fit in atlas | ⚠ Warning |
+| Multi-atlas disabled + atlas > 80% full | Glyphs will fail when atlas overflows | ⚠ Warning |
+| Multi-atlas disabled | Atlas cannot grow | ⚠ Warning |
+| Atlas > 90% full (multi-atlas on) | New texture page will be allocated | ℹ Info |
+| Fallback chain depth > 3 | Per-frame CPU cost for missing glyph lookups | ℹ Info |
+| Dynamic fallbacks in chain | Glyph generation stutter on first use | ℹ Info |
+
+### Script compatibility (dynamic TMP)
+
+| Script | Issue |
+|---|---|
+| CJK / Hiragana / Katakana / Hangul | Large atlas (≥ 1024×1024) required; static atlas recommended for large sets |
+| Thai | Complex shaping not supported by standard TMP — requires TextShaper |
+| Arabic / Persian / Urdu | RTL + ligature shaping not supported — requires TextShaper or RTL plugin |
+| Hebrew / Syriac | RTL + nikud positioning not supported — requires TextShaper |
+| Devanagari / Bengali / Tamil / Telugu / Kannada / Malayalam / Gujarati / Gurmukhi / Odia | Conjunct shaping not supported — requires TextShaper |
+
+### Unity Font checks
+
+| Check | Issue | Severity |
+|---|---|---|
+| Import charset = ASCII | Non-ASCII characters not baked | ⚠ Warning |
+| Import charset = Custom Set, chars missing | Input chars not in the custom set | ⚠ Warning |
+| Rendering mode = OS Default | Inconsistent appearance across platforms | ℹ Info |
 
 ## Requirements
 
@@ -68,14 +118,20 @@ The result window shows:
 
 ## Project Status
 
-This project is in **active development**. Core functionality is stable and production-ready.
+This project is an **experimental AI-generated prototype** under active manual refinement.
 
-**Current focus:**
-- **Bug fixes**: Addressed as reported
-- **Improvements**: Ongoing based on real-world localization use cases
-- **New features**: In consideration
+**Current state:**
+- Core logic (font file parsing, atlas checks, script compatibility) is functional but has not been exhaustively tested across all font formats and Unity versions
+- Results should be treated as **informational hints**, not ground truth — always verify on a real device
+- Edge cases (variable fonts, WOFF/WOFF2, obscure cmap formats, non-standard TMP asset configurations) may produce incorrect output
 
-**Need a feature?** Feel free to open an issue with your use case!
+**Roadmap:**
+- Manual code review and hardening of the OpenType cmap parser
+- Expanded test coverage across font formats (OTF, TTC, variable fonts)
+- WOFF/WOFF2 support (currently falls back to Unity API with a warning)
+- CI validation against known font files
+
+**Need a feature or found a bug?** Open an issue with your font file and a description of the unexpected result.
 
 ## Contributing
 
