@@ -32,14 +32,19 @@ namespace LLarean.GlyphFontChecker
         private Object _fontAsset;
 
         [MenuItem("Tools/Font Localization Checker")]
-        public static void ShowWindow() => GetWindow<FontLocalizationChecker>("Font Checker");
+        public static void ShowWindow()
+        {
+            var w = GetWindow<FontLocalizationChecker>("Font Checker");
+            w.minSize = new Vector2(340, 260);
+        }
 
         private void OnGUI()
         {
+            GUILayout.Space(4);
             DrawTextSourceSection();
-            GUILayout.Space(10);
+            GUILayout.Space(6);
             DrawFontSection();
-            GUILayout.Space(10);
+            GUILayout.Space(6);
             DrawCheckButton();
         }
 
@@ -47,6 +52,7 @@ namespace LLarean.GlyphFontChecker
 
         private void DrawTextSourceSection()
         {
+            EditorGUILayout.BeginVertical("helpBox");
             EditorGUILayout.LabelField("Text Source", EditorStyles.boldLabel);
 
             DrawTextAssetField();
@@ -63,6 +69,7 @@ namespace LLarean.GlyphFontChecker
                     $"Source: {_charSource}   |   {_chars.Count} unique chars  (from {_totalInputLength} total)",
                     MessageType.None);
             }
+            EditorGUILayout.EndVertical();
         }
 
         private void DrawTextAssetField()
@@ -125,8 +132,25 @@ namespace LLarean.GlyphFontChecker
 
         private void DrawFontSection()
         {
-            EditorGUILayout.LabelField("Font Asset (TMP Font or Unity Font)", EditorStyles.boldLabel);
+            EditorGUILayout.BeginVertical("helpBox");
+            EditorGUILayout.LabelField("Font Asset", EditorStyles.boldLabel);
             _fontAsset = EditorGUILayout.ObjectField(_fontAsset, typeof(Object), false);
+
+            if (_fontAsset != null)
+            {
+                string typeLabel = _fontAsset switch
+                {
+                    TMP_FontAsset tmp when tmp.atlasPopulationMode == AtlasPopulationMode.Dynamic
+                        => "TMP Font Asset  ·  Dynamic Atlas",
+                    TMP_FontAsset _
+                        => "TMP Font Asset  ·  Static Atlas",
+                    Font _
+                        => "Unity Legacy Font",
+                    _ => _fontAsset.GetType().Name
+                };
+                EditorGUILayout.LabelField(typeLabel, EditorStyles.miniLabel);
+            }
+            EditorGUILayout.EndVertical();
         }
 
         // ── Check ────────────────────────────────────────────────────────────────

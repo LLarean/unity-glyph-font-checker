@@ -7,22 +7,36 @@ namespace LLarean.GlyphFontChecker
     public class ResultWindow : EditorWindow
     {
         private ValidationResult _result;
-        private Vector2 _missingFileScrollPos;
-        private Vector2 _notBakedScrollPos;
-        private Vector2 _fallbackScrollPos;
-        private Vector2 _diagnosticScrollPos;
-        private bool    _diagnosticExpanded;
+        private Vector2 _scrollPos;
+
+        // Foldout states
+        private bool _foldParsing;
+        private bool _foldAtlas    = true;
+        private bool _foldFallback = true;
+        private bool _foldMissing  = true;
+        private bool _foldNotBaked = true;
+
+        private bool _initialized;
 
         public static void Show(ValidationResult result)
         {
             var window = GetWindow<ResultWindow>(true, "Font Check Result");
-            window._result = result;
+            window._result      = result;
+            window._initialized = false;
+            window.minSize      = new Vector2(420, 300);
             window.Show();
         }
 
         private void OnGUI()
         {
             if (_result == null) return;
+
+            // One-time: collapse Parsing section when direct read succeeded
+            if (!_initialized)
+            {
+                _initialized  = true;
+                _foldParsing  = !_result.UsedDirectFileRead; // expand if there's a problem
+            }
 
             if (_result.HasError)
             {
@@ -31,117 +45,133 @@ namespace LLarean.GlyphFontChecker
                 return;
             }
 
-            DrawHeader();
-            DrawReadMethodNote();
-            DrawDynamicSummary();
-            DrawAtlasWarnings();
-            DrawFallbackInfo();
-            DrawMissingFromFontFile();
-            DrawNotBakedIntoAtlas();
+            DrawStatusBox();
+
+            GUILayout.Space(4);
+            _scrollPos = EditorGUILayout.BeginScrollView(_scrollPos);
+
+            DrawSectionParsing();
+            DrawSectionAtlas();
+            DrawSectionFallback();
+            DrawSectionMissing();
+            DrawSectionNotBaked();
+
+            GUILayout.Space(4);
+            EditorGUILayout.EndScrollView();
+
             DrawCloseButton();
         }
 
-        // ── Header ───────────────────────────────────────────────────────────────
+        // ── Status box ────────────────────────────────────────────────────────────
 
-        private void DrawHeader()
+        private void DrawStatusBox()
         {
-            EditorGUILayout.LabelField($"{_result.AssetName} ({_result.AssetType})", EditorStyles.boldLabel);
+            bool hardMissing = _result.MissingCount > 0 && _result.UsedDirectFileRead;
+            bool hasWarning  = _result.MissingCount > 0
+                            || _result.AtlasWarnings.Any(w => w.Level == ValidationResult.Severity.Warning);
 
-            var stats = $"Unique chars: {_result.TotalChars}   Present: {_result.PresentChars}";
-            if (_result.HasFallbacks)
-                stats += $"   Fallback: {_result.FallbackCoveredCount}";
-            if (_result.NotBakedIntoAtlasCount > 0)
-                stats += $"   Not baked: {_result.NotBakedIntoAtlasCount}";
-            stats += $"   Missing: {_result.MissingCount}";
+            MessageType boxType = hardMissing ? MessageType.Error
+                                : hasWarning  ? MessageType.Warning
+                                :               MessageType.None;
 
-            EditorGUILayout.LabelField(stats);
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"{_result.AssetName}  [{_result.AssetType}]");
+
+            sb.Append($"{_result.TotalChars} chars  ·  {_result.PresentChars} present");
+            if (_result.FallbackCoveredCount > 0) sb.Append($"  ·  {_result.FallbackCoveredCount} via fallback");
+            if (_result.NotBakedIntoAtlasCount > 0) sb.Append($"  ·  {_result.NotBakedIntoAtlasCount} not baked");
+            sb.Append($"  ·  {_result.MissingCount} missing");
+
+            EditorGUILayout.HelpBox(sb.ToString(), boxType);
         }
 
-        // ── Read method note ─────────────────────────────────────────────────────
+        // ── Parsing Method ────────────────────────────────────────────────────────
 
-        private void DrawReadMethodNote()
+        private void DrawSectionParsing()
         {
+            string label = _result.UsedDirectFileRead
+                ? "Parsing Method"
+                : "Parsing Method  ⚠";
+
+            _foldParsing = EditorGUILayout.Foldout(_foldParsing, label, toggleOnLabelClick: true);
+            if (!_foldParsing) return;
+
+            EditorGUI.indentLevel++;
+
             if (_result.UsedDirectFileRead)
             {
                 EditorGUILayout.HelpBox(
                     "Glyphs verified by direct font file parsing (no system font substitution).",
                     MessageType.None);
-                return;
             }
-
-            if (!_result.FontFileReaderInvoked)
+            else if (!_result.FontFileReaderInvoked)
             {
-                // FontFileReader was never called — most likely sourceFontFile is null
                 EditorGUILayout.HelpBox(
-                    "Font file was not read — FontFileReader was not invoked.\n\n" +
-                    "Most likely cause: the Source Font File is not assigned on this asset.\n" +
-                    "Results are based on the current atlas cache only — characters not yet rendered\n" +
-                    "will appear as missing even if the source font contains them.\n\n" +
-                    "There is no [FontFileReader] warning in the Console because the reader was never called.",
+                    "Font file was not read — Source Font File is not assigned on this asset.\n\n" +
+                    "Results are based on the current atlas cache only. Characters not yet rendered\n" +
+                    "will appear as missing even if the source font contains them.",
                     MessageType.Warning);
             }
             else
             {
-                // FontFileReader was called but could not parse the file
                 EditorGUILayout.HelpBox(
                     "Font file could not be parsed directly — fell back to Unity's font API.\n\n" +
-                    "What this means:\n" +
                     "  • Characters shown as MISSING are reliably missing.\n" +
-                    "  • Characters shown as PRESENT may be false positives from system font substitution\n" +
-                    "    (e.g. Arial or Noto covering the character instead of this font file).",
+                    "  • Characters shown as PRESENT may include false positives\n" +
+                    "    from system font substitution (e.g. Arial, Noto).",
                     MessageType.Warning);
 
-                DrawFontReadDiagnostic();
+                GUILayout.Space(2);
+                DrawDiagnosticDetail();
             }
+
+            EditorGUI.indentLevel--;
         }
 
-        // ── Font read diagnostic ──────────────────────────────────────────────────
-
-        private void DrawFontReadDiagnostic()
+        private void DrawDiagnosticDetail()
         {
             bool hasDiag = !string.IsNullOrEmpty(_result.FontReadDiagnostic);
 
             EditorGUILayout.BeginHorizontal();
-            _diagnosticExpanded = EditorGUILayout.Foldout(_diagnosticExpanded,
-                hasDiag ? "Why did parsing fail? (details)" : "Why did parsing fail?",
-                toggleOnLabelClick: true);
-
-            if (GUILayout.Button("Open Console", GUILayout.Width(110)))
+            EditorGUILayout.LabelField(
+                hasDiag ? "Parse failure detail:" : "No diagnostic available — check the Console.",
+                EditorStyles.miniLabel);
+            if (GUILayout.Button("Open Console", GUILayout.Width(108)))
                 EditorApplication.ExecuteMenuItem("Window/General/Console");
             EditorGUILayout.EndHorizontal();
 
-            if (!_diagnosticExpanded) return;
-
             if (hasDiag)
             {
-                GUILayout.Space(2);
-                _diagnosticScrollPos = EditorGUILayout.BeginScrollView(_diagnosticScrollPos, GUILayout.Height(100));
-                EditorGUILayout.SelectableLabel(_result.FontReadDiagnostic,
-                    EditorStyles.wordWrappedLabel,
-                    GUILayout.ExpandHeight(true));
-                EditorGUILayout.EndScrollView();
-
-                if (GUILayout.Button("Copy diagnostic to clipboard"))
-                    EditorGUIUtility.systemCopyBuffer = _result.FontReadDiagnostic;
-            }
-            else
-            {
-                EditorGUILayout.HelpBox(
-                    "No detailed diagnostic available. Check the Unity Console for a [FontFileReader] warning " +
-                    "— it contains the exact path that was attempted and the reason for the failure.",
-                    MessageType.None);
+                DrawSelectableLabelWithCopy(_result.FontReadDiagnostic, "Copy");
             }
         }
 
-        // ── Dynamic summary ───────────────────────────────────────────────────────
+        // ── Atlas & Settings ──────────────────────────────────────────────────────
 
-        private void DrawDynamicSummary()
+        private void DrawSectionAtlas()
         {
-            if (!_result.IsDynamic) return;
+            bool hasContent = _result.IsDynamic || _result.AtlasWarnings.Count > 0;
+            if (!hasContent) return;
 
-            GUILayout.Space(4);
-            var (msg, type) = BuildDynamicMessage();
-            EditorGUILayout.HelpBox(msg, type);
+            GUILayout.Space(2);
+            _foldAtlas = EditorGUILayout.Foldout(_foldAtlas, "Atlas & Settings", toggleOnLabelClick: true);
+            if (!_foldAtlas) return;
+
+            EditorGUI.indentLevel++;
+
+            if (_result.IsDynamic)
+            {
+                var (msg, type) = BuildDynamicMessage();
+                EditorGUILayout.HelpBox(msg, type);
+            }
+
+            foreach (var w in _result.AtlasWarnings)
+            {
+                var t = w.Level == ValidationResult.Severity.Warning ? MessageType.Warning : MessageType.Info;
+                EditorGUILayout.HelpBox(w.Message, t);
+            }
+
+            EditorGUI.indentLevel--;
         }
 
         private (string message, MessageType type) BuildDynamicMessage()
@@ -157,118 +187,134 @@ namespace LLarean.GlyphFontChecker
             {
                 return (
                     "Dynamic atlas — some characters were not found in the current atlas cache. " +
-                    "The source font file could not be read directly, so these may still render at runtime if the source font contains them. " +
-                    "See warnings below.",
+                    "The source font file could not be read directly, so these may still render at runtime " +
+                    "if the source font contains them.",
                     MessageType.Warning);
             }
 
             return (
                 "Dynamic atlas — some characters are absent from the source font file and will never render. " +
-                "See 'Missing from font file' below.",
+                "See 'Missing Characters' below.",
                 MessageType.Error);
         }
 
-        // ── Atlas warnings ────────────────────────────────────────────────────────
+        // ── Fallback Coverage ─────────────────────────────────────────────────────
 
-        private void DrawAtlasWarnings()
-        {
-            foreach (var w in _result.AtlasWarnings)
-            {
-                var type = w.Level == ValidationResult.Severity.Warning ? MessageType.Warning : MessageType.Info;
-                EditorGUILayout.HelpBox(w.Message, type);
-            }
-        }
-
-        // ── Fallback coverage ─────────────────────────────────────────────────────
-
-        private void DrawFallbackInfo()
+        private void DrawSectionFallback()
         {
             if (!_result.HasFallbacks) return;
 
-            GUILayout.Space(8);
-            EditorGUILayout.LabelField("Covered by fallback fonts:", EditorStyles.boldLabel);
+            GUILayout.Space(2);
+            _foldFallback = EditorGUILayout.Foldout(_foldFallback,
+                $"Fallback Coverage  ({_result.FallbackCoveredCount} chars)",
+                toggleOnLabelClick: true);
+            if (!_foldFallback) return;
 
-            _fallbackScrollPos = EditorGUILayout.BeginScrollView(_fallbackScrollPos, GUILayout.Height(80));
+            EditorGUI.indentLevel++;
             foreach (var f in _result.Fallbacks)
             {
                 var chars = string.Join(" ", f.Chars.OrderBy(c => c));
-                EditorGUILayout.HelpBox($"{f.FontName} ({f.Chars.Count}):  {chars}", MessageType.Info);
+                EditorGUILayout.LabelField($"{f.FontName}  ({f.Chars.Count})", EditorStyles.boldLabel);
+                DrawSelectableLabelWithCopy(chars, "Copy");
+                GUILayout.Space(2);
             }
-            EditorGUILayout.EndScrollView();
+            EditorGUI.indentLevel--;
         }
 
-        // ── Missing from font file ────────────────────────────────────────────────
+        // ── Missing Characters ────────────────────────────────────────────────────
 
-        private void DrawMissingFromFontFile()
+        private void DrawSectionMissing()
         {
             if (_result.MissingCount == 0) return;
 
-            GUILayout.Space(8);
+            GUILayout.Space(2);
+
+            string label = _result.UsedDirectFileRead
+                ? $"Missing Characters  ({_result.MissingCount})"
+                : _result.IsDynamic
+                    ? $"Not in Atlas Cache  ({_result.MissingCount})"
+                    : $"Not Found  ({_result.MissingCount})";
+
+            _foldMissing = EditorGUILayout.Foldout(_foldMissing, label, toggleOnLabelClick: true);
+            if (!_foldMissing) return;
+
+            EditorGUI.indentLevel++;
 
             if (_result.UsedDirectFileRead)
             {
-                EditorGUILayout.LabelField($"Missing from font file ({_result.MissingCount}):", EditorStyles.boldLabel);
                 EditorGUILayout.HelpBox(
-                    "These characters are physically absent from the font file. " +
-                    "They will never render regardless of atlas settings — a different font is needed.",
+                    "Physically absent from the font file — will never render regardless of atlas settings.\n" +
+                    "A different font is needed for these characters.",
                     MessageType.Error);
             }
             else
             {
-                // Font file could not be parsed — fallback results based on atlas cache / HasCharacter()
-                string label = _result.IsDynamic
-                    ? $"Not found in atlas cache ({_result.MissingCount}):"
-                    : $"Not found via system API ({_result.MissingCount}):";
-                EditorGUILayout.LabelField(label, EditorStyles.boldLabel);
-
-                string explanation = _result.IsDynamic
-                    ? "Font file could not be read directly — these characters are absent from the current atlas cache.\n" +
-                      "They may still render at runtime if the source font contains them and the atlas has capacity.\n" +
-                      "Check the Unity Console for a [FontFileReader] warning to see the exact path and failure reason."
-                    : "Font file could not be read directly — results are based on Unity's HasCharacter() API.\n" +
-                      "Characters listed here are reliably missing (Unity couldn't find them anywhere).\n" +
-                      "However, characters NOT listed may include false positives from system font substitution.\n" +
-                      "Check the Unity Console for a [FontFileReader] warning to see the exact path and failure reason.";
-                EditorGUILayout.HelpBox(explanation, MessageType.Warning);
+                string note = _result.IsDynamic
+                    ? "Absent from current atlas cache. May still render at runtime if the source font contains them."
+                    : "Not found via Unity's font API. Characters not listed may still be false positives\nfrom system font substitution.";
+                EditorGUILayout.HelpBox(note, MessageType.Warning);
             }
 
             var missingStr = string.Join(" ", _result.MissingChars.OrderBy(c => c));
-            _missingFileScrollPos = EditorGUILayout.BeginScrollView(_missingFileScrollPos, GUILayout.Height(80));
-            EditorGUILayout.TextArea(missingStr);
-            EditorGUILayout.EndScrollView();
+            DrawSelectableLabelWithCopy(missingStr, "Copy");
 
-            if (GUILayout.Button("Copy to clipboard"))
-                EditorGUIUtility.systemCopyBuffer = missingStr;
+            EditorGUI.indentLevel--;
         }
 
-        // ── Not baked into atlas ──────────────────────────────────────────────────
+        // ── Not Baked into Atlas ──────────────────────────────────────────────────
 
-        private void DrawNotBakedIntoAtlas()
+        private void DrawSectionNotBaked()
         {
             if (_result.NotBakedIntoAtlasCount == 0) return;
 
-            GUILayout.Space(8);
-            EditorGUILayout.LabelField($"In font but not in atlas ({_result.NotBakedIntoAtlasCount}):", EditorStyles.boldLabel);
+            GUILayout.Space(2);
+            _foldNotBaked = EditorGUILayout.Foldout(_foldNotBaked,
+                $"Not Baked into Atlas  ({_result.NotBakedIntoAtlasCount})",
+                toggleOnLabelClick: true);
+            if (!_foldNotBaked) return;
+
+            EditorGUI.indentLevel++;
+
             EditorGUILayout.HelpBox(
-                "These characters exist in the source font file but are not baked into the current static atlas. " +
+                "Present in the source font file but not baked into the current static atlas.\n" +
                 "Use 'Regenerate Atlas' in the TMP Font Asset inspector to include them.",
                 MessageType.Warning);
 
             var notBakedStr = string.Join(" ", _result.NotBakedIntoAtlas.OrderBy(c => c));
-            _notBakedScrollPos = EditorGUILayout.BeginScrollView(_notBakedScrollPos, GUILayout.Height(80));
-            EditorGUILayout.TextArea(notBakedStr);
-            EditorGUILayout.EndScrollView();
+            DrawSelectableLabelWithCopy(notBakedStr, "Copy");
 
-            if (GUILayout.Button("Copy not-baked to clipboard"))
-                EditorGUIUtility.systemCopyBuffer = notBakedStr;
+            EditorGUI.indentLevel--;
         }
 
-        // ── Close ─────────────────────────────────────────────────────────────────
+        // ── Shared helpers ────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Renders a word-wrapped selectable label with a fixed-width Copy button to its right.
+        /// Height is calculated from actual content to avoid layout jumps.
+        /// </summary>
+        private void DrawSelectableLabelWithCopy(string text, string copyLabel = "Copy")
+        {
+            if (string.IsNullOrEmpty(text)) return;
+
+            float indent    = EditorGUI.indentLevel * 15f;
+            float available = Mathf.Max(80f, position.width - indent - 70f);
+            float height    = EditorStyles.wordWrappedLabel.CalcHeight(new GUIContent(text), available);
+            height = Mathf.Max(height, EditorGUIUtility.singleLineHeight);
+
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.SelectableLabel(text,
+                EditorStyles.wordWrappedLabel,
+                GUILayout.Height(height),
+                GUILayout.ExpandWidth(true));
+            if (GUILayout.Button(copyLabel, GUILayout.Width(50), GUILayout.Height(height)))
+                EditorGUIUtility.systemCopyBuffer = text;
+            EditorGUILayout.EndHorizontal();
+        }
 
         private void DrawCloseButton()
         {
-            GUILayout.Space(8);
-            if (GUILayout.Button("Close"))
+            GUILayout.Space(4);
+            if (GUILayout.Button("Close", GUILayout.Height(24)))
                 Close();
         }
     }

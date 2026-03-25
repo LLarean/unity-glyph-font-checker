@@ -62,9 +62,15 @@ The result window shows:
 
 ### Direct font file parsing (all font types)
 
-The tool reads the OpenType/TrueType `cmap` table directly from the `.ttf`/`.otf`/`.ttc` file — bypassing Unity's font API and system font substitution. Supported cmap formats: **4** (BMP), **6** (trimmed), **12** (full Unicode).
+The tool reads the OpenType/TrueType `cmap` table directly from the font file — bypassing Unity's font API and system font substitution.
 
-If the file cannot be parsed (Packages/ path, WOFF/WOFF2, unsupported format), the tool falls back to Unity's `HasCharacter()` API and reports the exact reason in the result window with a copy button.
+**Supported containers:** TTF, OTF, TTC (all sub-fonts merged), WOFF (zlib-compressed tables decompressed automatically).
+
+**Supported cmap formats:** 2 (mixed single/double-byte), **4** (BMP segmented), **6** (trimmed), **10** (trimmed 32-bit), **12** (full Unicode), **13** (many-to-one range).
+
+**Not supported:** WOFF2 (Brotli compression requires .NET 6+, not available in the Unity Editor runtime) — the tool falls back to Unity's API and reports the exact reason in the result window.
+
+If the file cannot be parsed for any other reason (Packages/ path, unsupported format), the tool likewise falls back to Unity's `HasCharacter()` API with a diagnostic.
 
 ### Static TMP atlas checks
 
@@ -123,12 +129,12 @@ This project is an **experimental AI-generated prototype** under active manual r
 **Current state:**
 - Core logic (font file parsing, atlas checks, script compatibility) is functional but has not been exhaustively tested across all font formats and Unity versions
 - Results should be treated as **informational hints**, not ground truth — always verify on a real device
-- Edge cases (variable fonts, WOFF/WOFF2, obscure cmap formats, non-standard TMP asset configurations) may produce incorrect output
+- Edge cases (variable fonts, WOFF2, non-standard TMP asset configurations) may produce incorrect output
 
 **Roadmap:**
 - Manual code review and hardening of the OpenType cmap parser
 - Expanded test coverage across font formats (OTF, TTC, variable fonts)
-- WOFF/WOFF2 support (currently falls back to Unity API with a warning)
+- WOFF2 support (requires Brotli / .NET 6+)
 - CI validation against known font files
 
 **Need a feature or found a bug?** Open an issue with your font file and a description of the unexpected result.
