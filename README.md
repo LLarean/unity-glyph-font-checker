@@ -1,11 +1,7 @@
 # ![unity](https://img.shields.io/badge/Unity-100000?style=for-the-badge&logo=unity&logoColor=white) Glyph Font Checker
 
-[![Releases](https://img.shields.io/github/v/release/llarean/unity-glyph-font-checker)](https://github.com/LLarean/unity-glyph-font-checker/releases)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/LLarean/unity-glyph-font-checker/blob/main/LICENSE.md)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
 ![stability-experimental](https://img.shields.io/badge/stability-experimental-orange.svg)
-[![CodeFactor](https://www.codefactor.io/repository/github/llarean/unity-glyph-font-checker/badge)](https://www.codefactor.io/repository/github/llarean/unity-glyph-font-checker)
-[![Support](https://img.shields.io/badge/support-active-brightgreen)](https://github.com/llarean/unity-glyph-font-checker/graphs/commit-activity)
-[![Downloads](https://img.shields.io/github/downloads/llarean/unity-glyph-font-checker/total)](https://github.com/LLarean/unity-glyph-font-checker/archive/refs/heads/main.zip)
 
 > [!WARNING]
 > **This utility is an AI-generated prototype.**
