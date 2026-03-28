@@ -1,53 +1,44 @@
-# ![unity](https://img.shields.io/badge/Unity-100000?style=for-the-badge&logo=unity&logoColor=white) Glyph Font Checker
+# Glyph Font Checker
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
 ![stability-experimental](https://img.shields.io/badge/stability-experimental-orange.svg)
 
 > [!WARNING]
-> **This utility is an AI-generated prototype.**
-> The current implementation was produced with the assistance of an AI coding tool and has not yet been fully reviewed or hardened by hand.
-> It will be refined manually in future iterations.
->
-> **Use at your own risk.** Results may be inaccurate in edge cases — always validate findings against a real device or a dedicated font inspection tool (e.g. FontForge, Windows Character Map) before making production decisions.
+> This is an AI-generated prototype under active manual refinement. Results may be inaccurate in edge cases — always validate against a real device or a dedicated font inspection tool before making production decisions.
 
 Editor utility for checking character coverage in TMP and Unity fonts. Detects missing glyphs, walks fallback font chains, and validates dynamic atlas settings that may cause characters to fail at runtime.
 
-Essential for localization workflows where a missing character can go unnoticed until it reaches production.
-
-**Technical details**: TextMeshPro renders characters by looking them up in a font atlas — a texture containing pre-rendered glyph bitmaps. Dynamic atlases generate glyphs on demand at runtime, but only if the source font is available and the atlas has enough space. Static atlases must contain all required characters upfront. Learn more in Unity's [TMP documentation](https://docs.unity3d.com/Packages/com.unity.textmeshpro@4.0/manual/index.html).
-
 ## Quick Start
+
 1. Install via Package Manager: `https://github.com/LLarean/unity-glyph-font-checker.git`
 2. Open `Tools > Font Localization Checker`
 3. Paste your localized text or load a TextAsset
 4. Drag a TMP Font Asset or Unity Font into the font field
 5. Click **Check**
 
-**Result**: A breakdown of present, fallback-covered, and truly missing characters — plus atlas setting warnings for dynamic fonts.
+The result shows present, fallback-covered, and missing characters — plus atlas setting warnings for dynamic fonts.
 
-## INSTALLATION
+## Installation
 
-There are 3 ways to install this utility:
-
-- clone/[download](https://github.com/LLarean/unity-glyph-font-checker/archive/main.zip) this repository and place the contents into your Unity project's *Assets* folder
-- *(via Package Manager)* Select **Add package from git URL** from the add menu and enter:
+- *(via Package Manager)* Select **Add package from git URL** and enter:
   - `https://github.com/LLarean/unity-glyph-font-checker.git`
-- *(via Package Manager)* add the following line to *Packages/manifest.json*:
+- *(via Package Manager)* Add to `Packages/manifest.json`:
   - `"com.llarean.glyphfontchecker": "https://github.com/LLarean/unity-glyph-font-checker.git"`
+- Clone or [download](https://github.com/LLarean/unity-glyph-font-checker/archive/main.zip) and place into your project's *Assets* folder
 
-## HOW TO
+## Usage
 
-1. Open the utility via `Tools > Font Localization Checker`
-2. Load your text — 3 ways:
+1. Open `Tools > Font Localization Checker`
+2. Load your text:
    - Drag a **TextAsset** (.txt file from the project) into the *Text Asset* field
-   - Click **Paste from Clipboard** — recommended for large texts (no TextArea rendering overhead)
+   - Click **Paste from Clipboard** — recommended for large texts
    - Type directly in the text area (safe for short inputs up to ~500 characters)
 3. Drag a **TMP Font Asset** or **Unity Font** into the font field
 4. Click **Check**
 
 The result window shows:
 - **Unique / Present / Fallback / Not baked / Missing** — full character breakdown
-- **Read method note** — whether results came from direct font file parsing or Unity API fallback; includes diagnostic details and a copy button when parsing failed
+- **Read method note** — whether results came from direct font file parsing or Unity API fallback; includes diagnostic details when parsing failed
 - **Dynamic atlas summary** — whether missing chars can be generated at runtime via the source font
 - **Atlas and script warnings** — atlas capacity estimate, script compatibility, fallback chain depth, font file bundling
 - **Fallback coverage** — which chars are rescued by each fallback font in the chain
@@ -56,19 +47,17 @@ The result window shows:
 
 ## Checks Reference
 
-### Direct font file parsing (all font types)
+### Direct Font File Parsing
 
-The tool reads the OpenType/TrueType `cmap` table directly from the font file — bypassing Unity's font API and system font substitution.
+The tool reads the OpenType/TrueType `cmap` table directly — bypassing Unity's font API and system font substitution.
 
 **Supported containers:** TTF, OTF, TTC (all sub-fonts merged), WOFF (zlib-compressed tables decompressed automatically).
 
 **Supported cmap formats:** 2 (mixed single/double-byte), **4** (BMP segmented), **6** (trimmed), **10** (trimmed 32-bit), **12** (full Unicode), **13** (many-to-one range).
 
-**Not supported:** WOFF2 (Brotli compression requires .NET 6+, not available in the Unity Editor runtime) — the tool falls back to Unity's API and reports the exact reason in the result window.
+**Not supported:** WOFF2 (Brotli compression requires .NET 6+) — falls back to Unity's API with a diagnostic reported in the result window.
 
-If the file cannot be parsed for any other reason (Packages/ path, unsupported format), the tool likewise falls back to Unity's `HasCharacter()` API with a diagnostic.
-
-### Static TMP atlas checks
+### Static TMP Atlas
 
 | Check | Issue | Severity |
 |---|---|---|
@@ -78,7 +67,7 @@ If the file cannot be parsed for any other reason (Packages/ path, unsupported f
 | Chars in source font but not in atlas | Need Regenerate Atlas | ⚠ Warning |
 | Chars absent from source font file | Need a different font | ✖ Error |
 
-### Dynamic TMP atlas checks
+### Dynamic TMP Atlas
 
 | Check | Issue | Severity |
 |---|---|---|
@@ -95,7 +84,7 @@ If the file cannot be parsed for any other reason (Packages/ path, unsupported f
 | Fallback chain depth > 3 | Per-frame CPU cost for missing glyph lookups | ℹ Info |
 | Dynamic fallbacks in chain | Glyph generation stutter on first use | ℹ Info |
 
-### Script compatibility (dynamic TMP)
+### Script Compatibility (Dynamic TMP)
 
 | Script | Issue |
 |---|---|
@@ -105,7 +94,7 @@ If the file cannot be parsed for any other reason (Packages/ path, unsupported f
 | Hebrew / Syriac | RTL + nikud positioning not supported — requires TextShaper |
 | Devanagari / Bengali / Tamil / Telugu / Kannada / Malayalam / Gujarati / Gurmukhi / Odia | Conjunct shaping not supported — requires TextShaper |
 
-### Unity Font checks
+### Unity Font
 
 | Check | Issue | Severity |
 |---|---|---|
@@ -118,27 +107,9 @@ If the file cannot be parsed for any other reason (Packages/ path, unsupported f
 - Unity 2021.3+
 - TextMeshPro (included in `com.unity.ugui >= 2.0.0`)
 
-## Project Status
-
-This project is an **experimental AI-generated prototype** under active manual refinement.
-
-**Current state:**
-- Core logic (font file parsing, atlas checks, script compatibility) is functional but has not been exhaustively tested across all font formats and Unity versions
-- Results should be treated as **informational hints**, not ground truth — always verify on a real device
-- Edge cases (variable fonts, WOFF2, non-standard TMP asset configurations) may produce incorrect output
-
-**Roadmap:**
-- Manual code review and hardening of the OpenType cmap parser
-- Expanded test coverage across font formats (OTF, TTC, variable fonts)
-- WOFF2 support (requires Brotli / .NET 6+)
-- CI validation against known font files
-
-**Need a feature or found a bug?** Open an issue with your font file and a description of the unexpected result.
-
 ## Contributing
 
-Contributions are welcome:
-- **Bug reports**: [Open an issue](https://github.com/LLarean/unity-glyph-font-checker/issues)
+- **Bug reports**: [Open an issue](https://github.com/LLarean/unity-glyph-font-checker/issues) with your font file and a description of the unexpected result
 - **Feature requests**: Describe your use case in an issue
 - **Pull requests**: For bug fixes or improvements
 
